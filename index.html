@@ -1,0 +1,834 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no" />
+  <meta name="theme-color" content="#07090f" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Pixel Pulse" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="description" content="A cyberpunk timing game. Tap when the pulse hits the ring." />
+  <title>Pixel Pulse</title>
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="icon" href="icon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="icon-192.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;800&family=Share+Tech+Mono&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #07090f;
+      --cyan: #3dfff3;
+      --purple: #c14bff;
+      --magenta: #ff2bd6;
+      --gold: #ffe566;
+      --miss: #ff3b6b;
+      --text: #eef7ff;
+      --muted: #7d8eaa;
+      --safe-top: env(safe-area-inset-top, 0px);
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: var(--bg);
+      color: var(--text);
+      font-family: "Orbitron", "Segoe UI", sans-serif;
+      touch-action: none;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    #app {
+      position: relative;
+      width: 100%;
+      height: 100dvh;
+      overflow: hidden;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    #hud {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: calc(18px + var(--safe-top)) 22px calc(18px + var(--safe-bottom));
+    }
+
+    .row {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 16px;
+    }
+
+    .stat {
+      min-width: 0;
+    }
+
+    .stat.right { text-align: right; }
+
+    .label {
+      font-family: "Share Tech Mono", ui-monospace, monospace;
+      font-size: 11px;
+      letter-spacing: 0.18em;
+      color: #9aacc6;
+      margin-bottom: 4px;
+    }
+
+    .value {
+      font-family: "Share Tech Mono", ui-monospace, monospace;
+      font-size: clamp(24px, 6vw, 36px);
+      font-weight: 500;
+      letter-spacing: 0.08em;
+      line-height: 1;
+      text-shadow: 0 0 18px rgba(61, 255, 243, 0.35);
+    }
+
+    .best .value {
+      color: var(--purple);
+      text-shadow: 0 0 18px rgba(193, 75, 255, 0.45);
+    }
+
+    #meta {
+      display: flex;
+      justify-content: center;
+      gap: 28px;
+      font-family: "Share Tech Mono", ui-monospace, monospace;
+      font-size: 12px;
+      letter-spacing: 0.22em;
+      color: var(--muted);
+    }
+
+    #meta strong {
+      color: var(--cyan);
+      font-weight: 500;
+    }
+
+    #overlay {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      text-align: center;
+      background:
+        radial-gradient(ellipse at 50% 42%, rgba(12, 10, 28, 0.28), rgba(7, 9, 15, 0.72) 62%);
+      transition: opacity 220ms ease, visibility 220ms ease;
+    }
+
+    #overlay.hidden {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+    }
+
+    .panel {
+      width: min(440px, 92vw);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .panel[hidden] {
+      display: none;
+    }
+
+    .eyebrow {
+      font-family: "Share Tech Mono", ui-monospace, monospace;
+      font-size: 12px;
+      letter-spacing: 0.22em;
+      color: var(--cyan);
+      text-transform: uppercase;
+      margin-bottom: 10px;
+      text-shadow: 0 0 12px rgba(61, 255, 243, 0.6);
+    }
+
+    h1 {
+      font-size: clamp(34px, 11vw, 68px);
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      line-height: 0.94;
+      white-space: nowrap;
+      background: linear-gradient(180deg, #ffffff 10%, var(--cyan) 48%, var(--purple) 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      filter: drop-shadow(0 0 18px rgba(193, 75, 255, 0.35));
+    }
+
+    .tag {
+      margin: 18px auto 0;
+      max-width: 30ch;
+      color: var(--muted);
+      font-family: "Share Tech Mono", ui-monospace, monospace;
+      font-size: 14px;
+      line-height: 1.6;
+      letter-spacing: 0.02em;
+      word-spacing: 0.08em;
+    }
+
+    .cta {
+      margin-top: 28px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 48px;
+      padding: 0 22px;
+      border: 1px solid rgba(61, 255, 243, 0.45);
+      border-radius: 999px;
+      color: var(--text);
+      letter-spacing: 0.08em;
+      word-spacing: 0.16em;
+      font-size: 12px;
+      text-transform: uppercase;
+      background: linear-gradient(180deg, rgba(61, 255, 243, 0.14), rgba(193, 75, 255, 0.08));
+      box-shadow: 0 0 24px rgba(61, 255, 243, 0.12), inset 0 0 16px rgba(61, 255, 243, 0.08);
+      animation: pulseCta 1.8s ease-in-out infinite;
+    }
+
+    @keyframes pulseCta {
+      0%, 100% { box-shadow: 0 0 18px rgba(61, 255, 243, 0.1), inset 0 0 12px rgba(61, 255, 243, 0.06); }
+      50% { box-shadow: 0 0 28px rgba(193, 75, 255, 0.28), inset 0 0 18px rgba(193, 75, 255, 0.1); }
+    }
+
+    .over-score {
+      margin-top: 18px;
+      font-family: "Share Tech Mono", ui-monospace, monospace;
+      font-size: clamp(42px, 13vw, 68px);
+      font-weight: 500;
+      letter-spacing: 0.06em;
+      color: var(--cyan);
+      text-shadow: 0 0 24px rgba(61, 255, 243, 0.45);
+    }
+
+    .over-sub {
+      margin-top: 8px;
+      font-family: "Share Tech Mono", ui-monospace, monospace;
+      color: var(--muted);
+      letter-spacing: 0.12em;
+      word-spacing: 0.18em;
+      font-size: 13px;
+    }
+
+    .over-sub.new {
+      color: var(--gold);
+      text-shadow: 0 0 14px rgba(255, 229, 102, 0.45);
+    }
+
+    #floatLayer {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+    }
+
+    .floater {
+      position: absolute;
+      left: 50%;
+      top: 38%;
+      transform: translate(-50%, -50%);
+      font-weight: 800;
+      letter-spacing: 0.22em;
+      font-size: clamp(28px, 8vw, 44px);
+      animation: rise 620ms ease-out forwards;
+      text-shadow: 0 0 22px currentColor;
+    }
+
+    .floater.perfect { color: var(--gold); }
+    .floater.great { color: var(--cyan); }
+    .floater.miss { color: var(--miss); }
+    .floater.boost { color: var(--purple); font-size: clamp(16px, 4.4vw, 22px); top: 46%; }
+
+    @keyframes rise {
+      0% { opacity: 1; transform: translate(-50%, -40%); filter: blur(0); }
+      100% { opacity: 0; transform: translate(-50%, -92%); filter: blur(2px); }
+    }
+
+    .kofi {
+      margin: 16px auto 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      min-height: 42px;
+      padding: 0 18px 0 14px;
+      pointer-events: auto;
+      text-decoration: none;
+      color: var(--text);
+      font-family: "Share Tech Mono", ui-monospace, monospace;
+      font-size: 12px;
+      letter-spacing: 0.1em;
+      word-spacing: 0.12em;
+      text-transform: uppercase;
+      border-radius: 999px;
+      border: 1px solid rgba(193, 75, 255, 0.55);
+      background: linear-gradient(180deg, rgba(193, 75, 255, 0.18), rgba(61, 255, 243, 0.08));
+      box-shadow: 0 0 20px rgba(193, 75, 255, 0.18), inset 0 0 14px rgba(193, 75, 255, 0.08);
+      cursor: pointer;
+    }
+
+    .kofi:hover,
+    .kofi:focus-visible {
+      border-color: rgba(61, 255, 243, 0.7);
+      box-shadow: 0 0 24px rgba(61, 255, 243, 0.22), inset 0 0 14px rgba(61, 255, 243, 0.08);
+    }
+
+    .kofi svg {
+      width: 22px;
+      height: 38px;
+      flex: 0 0 auto;
+      filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.35));
+    }
+
+    #install {
+      display: none;
+      margin: 16px auto 0;
+      pointer-events: auto;
+      border: 0;
+      background: transparent;
+      color: var(--purple);
+      font: inherit;
+      font-size: 11px;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      cursor: pointer;
+    }
+
+    #scan {
+      pointer-events: none;
+      position: absolute;
+      inset: 0;
+      background: repeating-linear-gradient(
+        to bottom,
+        transparent 0,
+        transparent 2px,
+        rgba(0, 0, 0, 0.08) 3px
+      );
+      mix-blend-mode: overlay;
+      opacity: 0.35;
+    }
+
+    #app.shake {
+      animation: shake 280ms cubic-bezier(0.36, 0.07, 0.19, 0.97);
+    }
+
+    @keyframes shake {
+      0%, 100% { transform: translate3d(0, 0, 0); }
+      20% { transform: translate3d(-6px, 3px, 0); }
+      40% { transform: translate3d(7px, -4px, 0); }
+      60% { transform: translate3d(-5px, -2px, 0); }
+      80% { transform: translate3d(4px, 3px, 0); }
+    }
+
+    @media (max-width: 520px) {
+      #hud { padding-left: 16px; padding-right: 16px; }
+      #meta { gap: 16px; letter-spacing: 0.14em; }
+      h1 { font-size: clamp(32px, 13vw, 48px); }
+      .tag { font-size: 13px; max-width: 22ch; }
+      .cta { letter-spacing: 0.06em; }
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <canvas id="stage" aria-hidden="true"></canvas>
+    <div id="scan"></div>
+    <div id="hud">
+      <div class="row">
+        <div class="stat">
+          <div class="label">SCORE</div>
+          <div class="value" id="score">00000</div>
+        </div>
+        <div class="stat right best">
+          <div class="label">BEST</div>
+          <div class="value" id="best">00000</div>
+        </div>
+      </div>
+      <div id="meta">
+        <span>STREAK <strong id="streak">0</strong></span>
+        <span>LEVEL <strong id="level">1</strong></span>
+      </div>
+    </div>
+    <div id="floatLayer"></div>
+    <div id="overlay">
+      <div class="panel" id="titlePanel">
+        <div class="eyebrow">CYBER TIMING OPS</div>
+        <h1>PIXEL<br />PULSE</h1>
+        <p class="tag">Tap or press Space when the rings overlap.</p>
+        <div class="cta">TAP / SPACE TO START</div>
+        <a class="kofi" href="https://ko-fi.com/H6V529LERC" target="_blank" rel="noopener noreferrer">
+          <svg viewBox="0 0 32 56" aria-hidden="true">
+            <path fill="#fff" d="M13 2h6c.8 0 1.5.7 1.5 1.5V7h-9V3.5C11.5 2.7 12.2 2 13 2z"/>
+            <ellipse cx="16" cy="9" rx="11" ry="3.2" fill="#fff"/>
+            <path fill="#fff" d="M6 11.6c0-1.6 20-1.6 20 0l-1.3 35.2c-.2 2.6-17.2 2.6-17.4 0L6 11.6z"/>
+            <ellipse cx="16" cy="47.6" rx="9.1" ry="2.6" fill="#fff"/>
+            <path fill="#16081f" d="M8.8 20.5 14.6 41h-3.1l-4.7-20.5z"/>
+            <path fill="#16081f" d="M14.2 19.6 20 41h-3.1l-4.8-21.4z"/>
+            <path fill="#16081f" d="M19.6 19.6 25.4 41h-3.1l-4.8-21.4z"/>
+          </svg>
+          <span>Buy me a Monster</span>
+        </a>
+        <button id="install" type="button">Install app</button>
+      </div>
+      <div class="panel" id="overPanel" hidden aria-hidden="true">
+        <div class="eyebrow">SIGNAL LOST</div>
+        <h1>GAME<br />OVER</h1>
+        <div class="over-score" id="finalScore">0</div>
+        <div class="over-sub" id="finalNote">BEST 0</div>
+        <div class="cta">TAP / SPACE TO RETRY</div>
+        <a class="kofi" href="https://ko-fi.com/H6V529LERC" target="_blank" rel="noopener noreferrer">
+          <svg viewBox="0 0 32 56" aria-hidden="true">
+            <path fill="#fff" d="M13 2h6c.8 0 1.5.7 1.5 1.5V7h-9V3.5C11.5 2.7 12.2 2 13 2z"/>
+            <ellipse cx="16" cy="9" rx="11" ry="3.2" fill="#fff"/>
+            <path fill="#fff" d="M6 11.6c0-1.6 20-1.6 20 0l-1.3 35.2c-.2 2.6-17.2 2.6-17.4 0L6 11.6z"/>
+            <ellipse cx="16" cy="47.6" rx="9.1" ry="2.6" fill="#fff"/>
+            <path fill="#16081f" d="M8.8 20.5 14.6 41h-3.1l-4.7-20.5z"/>
+            <path fill="#16081f" d="M14.2 19.6 20 41h-3.1l-4.8-21.4z"/>
+            <path fill="#16081f" d="M19.6 19.6 25.4 41h-3.1l-4.8-21.4z"/>
+          </svg>
+          <span>Buy me a Monster</span>
+        </a>
+      </div>
+    </div>
+  </div>
+  <script>
+    (() => {
+      const HS_KEY = "pixelPulseHighScore";
+      const canvas = document.getElementById("stage");
+      const ctx = canvas.getContext("2d");
+      const app = document.getElementById("app");
+      const overlay = document.getElementById("overlay");
+      const titlePanel = document.getElementById("titlePanel");
+      const overPanel = document.getElementById("overPanel");
+      const scoreEl = document.getElementById("score");
+      const bestEl = document.getElementById("best");
+      const streakEl = document.getElementById("streak");
+      const levelEl = document.getElementById("level");
+      const finalScoreEl = document.getElementById("finalScore");
+      const finalNoteEl = document.getElementById("finalNote");
+      const floatLayer = document.getElementById("floatLayer");
+      const installBtn = document.getElementById("install");
+
+      const state = {
+        mode: "title",
+        score: 0,
+        high: Number(localStorage.getItem(HS_KEY) || 0),
+        hits: 0,
+        streak: 0,
+        level: 1,
+        pulseR: 12,
+        duration: 1.55,
+        waiting: 0,
+        inputLock: 0,
+        particles: [],
+        trails: [],
+        flash: 0,
+        flashColor: "61,255,243",
+        shake: 0,
+        last: 0,
+        w: 0,
+        h: 0,
+        cx: 0,
+        cy: 0,
+        targetR: 120,
+      };
+
+      let audioCtx = null;
+      let installEvent = null;
+
+      const pad = (n) => String(Math.max(0, n | 0)).padStart(5, "0");
+
+      function syncHud() {
+        scoreEl.textContent = pad(state.score);
+        bestEl.textContent = pad(state.high);
+        streakEl.textContent = String(state.streak);
+        levelEl.textContent = String(state.level);
+      }
+
+      function resize() {
+        const vv = window.visualViewport;
+        const w = Math.max(1, Math.round(vv ? vv.width : window.innerWidth));
+        const h = Math.max(1, Math.round(vv ? vv.height : window.innerHeight));
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        canvas.width = Math.floor(w * dpr);
+        canvas.height = Math.floor(h * dpr);
+        canvas.style.width = w + "px";
+        canvas.style.height = h + "px";
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        state.w = w;
+        state.h = h;
+        state.cx = w * 0.5;
+        state.cy = h * 0.47;
+        state.targetR = Math.min(w, h) * 0.27;
+      }
+
+      function ensureAudio() {
+        if (audioCtx) {
+          if (audioCtx.state === "suspended") audioCtx.resume();
+          return;
+        }
+        const Ctx = window.AudioContext || window.webkitAudioContext;
+        if (!Ctx) return;
+        audioCtx = new Ctx();
+      }
+
+      function beep(freq, dur, type, vol, slide) {
+        if (!audioCtx) return;
+        const t = audioCtx.currentTime;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, t);
+        if (slide) osc.frequency.exponentialRampToValueAtTime(slide, t + dur);
+        gain.gain.setValueAtTime(vol, t);
+        gain.gain.exponentialRampToValueAtTime(0.0008, t + dur);
+        osc.connect(gain).connect(audioCtx.destination);
+        osc.start(t);
+        osc.stop(t + dur + 0.02);
+      }
+
+      function floatText(text, kind) {
+        const el = document.createElement("div");
+        el.className = "floater " + kind;
+        el.textContent = text;
+        floatLayer.appendChild(el);
+        setTimeout(() => el.remove(), 640);
+      }
+
+      function burst(radius, count, palette, power) {
+        for (let i = 0; i < count; i++) {
+          const a = (Math.PI * 2 * i) / count + Math.random() * 0.2;
+          const spd = (0.55 + Math.random() * 0.9) * power;
+          state.particles.push({
+            x: state.cx + Math.cos(a) * radius,
+            y: state.cy + Math.sin(a) * radius,
+            vx: Math.cos(a) * spd,
+            vy: Math.sin(a) * spd,
+            life: 1,
+            decay: 0.016 + Math.random() * 0.02,
+            size: 1.6 + Math.random() * 3.2,
+            color: palette[i % palette.length],
+          });
+        }
+      }
+
+      function startGame() {
+        ensureAudio();
+        beep(220, 0.08, "square", 0.04, 520);
+        state.mode = "playing";
+        state.score = 0;
+        state.hits = 0;
+        state.streak = 0;
+        state.level = 1;
+        state.duration = 1.55;
+        state.waiting = 0.22;
+        state.inputLock = 0.2;
+        state.pulseR = 10;
+        state.particles = [];
+        state.trails = [];
+        overlay.classList.add("hidden");
+        titlePanel.hidden = false;
+        overPanel.hidden = true;
+        overPanel.setAttribute("aria-hidden", "true");
+        syncHud();
+      }
+
+      function gameOver() {
+        state.mode = "over";
+        const isNew = state.score > state.high;
+        if (isNew) {
+          state.high = state.score;
+          localStorage.setItem(HS_KEY, String(state.high));
+        }
+        finalScoreEl.textContent = String(state.score);
+        finalNoteEl.textContent = isNew ? "NEW HIGH SCORE" : "BEST " + state.high;
+        finalNoteEl.classList.toggle("new", isNew);
+        titlePanel.hidden = true;
+        overPanel.hidden = false;
+        overPanel.setAttribute("aria-hidden", "false");
+        overlay.classList.remove("hidden");
+        syncHud();
+        beep(180, 0.28, "sawtooth", 0.05, 60);
+      }
+
+      function succeed(kind) {
+        const perfect = kind === "perfect";
+        const gain = perfect ? 100 : 50;
+        state.score += gain;
+        state.hits += 1;
+        state.streak += 1;
+        state.flash = 1;
+        state.flashColor = perfect ? "255,229,102" : "61,255,243";
+        state.waiting = 0.28;
+        floatText(perfect ? "PERFECT +100" : "GREAT +50", kind);
+        burst(
+          state.targetR,
+          perfect ? 36 : 22,
+          perfect ? ["#ffe566", "#3dfff3", "#ffffff"] : ["#3dfff3", "#c14bff"],
+          perfect ? 7.2 : 5.2
+        );
+        if (perfect) {
+          state.shake = 1;
+          app.classList.remove("shake");
+          void app.offsetWidth;
+          app.classList.add("shake");
+          beep(740, 0.12, "triangle", 0.06, 1180);
+        } else {
+          beep(520, 0.09, "square", 0.045, 760);
+        }
+        if (state.hits > 0 && state.hits % 3 === 0) {
+          state.level += 1;
+          state.duration = Math.max(0.58, state.duration * 0.88);
+          floatText("OVERCLOCK", "boost");
+          beep(300, 0.16, "sawtooth", 0.04, 900);
+        }
+        syncHud();
+      }
+
+      function tryHit() {
+        if (state.mode !== "playing" || state.waiting > 0 || state.inputLock > 0) return;
+        const delta = Math.abs(state.pulseR - state.targetR);
+        const perfectWindow = state.targetR * 0.034;
+        const greatWindow = state.targetR * 0.1;
+        if (delta <= perfectWindow) succeed("perfect");
+        else if (delta <= greatWindow) succeed("great");
+        else miss();
+      }
+
+      function miss() {
+        if (state.mode !== "playing") return;
+        state.flash = 1;
+        state.flashColor = "255,59,107";
+        state.shake = 0.7;
+        burst(state.pulseR, 28, ["#ff3b6b", "#c14bff", "#ffffff"], 6);
+        floatText("MISS", "miss");
+        gameOver();
+      }
+
+      function onInput(event) {
+        if (event) {
+          if (event.repeat) return;
+          if (event.type === "keydown" && event.code !== "Space") return;
+          if (event.target && event.target.closest && event.target.closest("#install, .kofi")) return;
+          if (event.code === "Space" || event.type === "pointerdown" || event.type === "click") {
+            event.preventDefault();
+          }
+        }
+        if (state.inputLock > 0) return;
+        if (state.mode === "title" || state.mode === "over") startGame();
+        else tryHit();
+      }
+
+      function drawGrid() {
+        const { w, h, cx, cy } = state;
+        ctx.save();
+        ctx.strokeStyle = "rgba(61, 255, 243, 0.05)";
+        ctx.lineWidth = 1;
+        const step = Math.max(28, Math.min(w, h) * 0.08);
+        for (let x = cx % step; x < w; x += step) {
+          ctx.beginPath();
+          ctx.moveTo(x, 0);
+          ctx.lineTo(x, h);
+          ctx.stroke();
+        }
+        for (let y = cy % step; y < h; y += step) {
+          ctx.beginPath();
+          ctx.moveTo(0, y);
+          ctx.lineTo(w, y);
+          ctx.stroke();
+        }
+        ctx.restore();
+      }
+
+      function glowRing(radius, color, width, alpha) {
+        ctx.beginPath();
+        ctx.arc(state.cx, state.cy, Math.max(0.5, radius), 0, Math.PI * 2);
+        ctx.strokeStyle = color;
+        ctx.globalAlpha = alpha;
+        ctx.lineWidth = width;
+        ctx.shadowColor = color;
+        ctx.shadowBlur = 18;
+        ctx.stroke();
+        ctx.globalAlpha = 1;
+        ctx.shadowBlur = 0;
+      }
+
+      function drawTarget() {
+        const { cx, cy, targetR } = state;
+        const t = performance.now() * 0.001;
+        glowRing(targetR + 18, "#c14bff", 1.2, 0.28 + Math.sin(t * 2) * 0.08);
+        glowRing(targetR, "#3dfff3", 3.4, 0.95);
+        glowRing(targetR, "#ffffff", 1.1, 0.45);
+        glowRing(targetR * 0.034 + targetR, "rgba(255,229,102,0.55)", 2.2, 0.55);
+        glowRing(targetR - targetR * 0.034, "rgba(255,229,102,0.55)", 2.2, 0.55);
+
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.rotate(t * 0.25);
+        ctx.strokeStyle = "rgba(193, 75, 255, 0.55)";
+        ctx.lineWidth = 2;
+        for (let i = 0; i < 12; i++) {
+          ctx.rotate(Math.PI / 6);
+          ctx.beginPath();
+          ctx.moveTo(0, -targetR + 10);
+          ctx.lineTo(0, -targetR + 18);
+          ctx.stroke();
+        }
+        ctx.restore();
+
+        const core = ctx.createRadialGradient(cx, cy, 0, cx, cy, 26);
+        core.addColorStop(0, "rgba(255,255,255,0.95)");
+        core.addColorStop(0.35, "rgba(61,255,243,0.7)");
+        core.addColorStop(1, "rgba(193,75,255,0)");
+        ctx.fillStyle = core;
+        ctx.beginPath();
+        ctx.arc(cx, cy, 26, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      function drawPulse() {
+        if (state.mode !== "playing" || state.waiting > 0) return;
+        const near = 1 - Math.min(1, Math.abs(state.pulseR - state.targetR) / (state.targetR * 0.22));
+        ctx.beginPath();
+        ctx.arc(state.cx, state.cy, state.pulseR, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(61, 255, 243, ${0.035 + near * 0.05})`;
+        ctx.fill();
+        glowRing(state.pulseR, "#3dfff3", 3 + near * 3, 0.55 + near * 0.4);
+        glowRing(state.pulseR, "#c14bff", 1.4, 0.35 + near * 0.3);
+        state.trails.push(state.pulseR);
+        if (state.trails.length > 8) state.trails.shift();
+        state.trails.forEach((r, i) => {
+          glowRing(r, "#3dfff3", 1.2, (i / state.trails.length) * 0.16);
+        });
+      }
+
+      function drawAmbient() {
+        const t = performance.now() * 0.001;
+        const breathe = 0.72 + Math.sin(t * 1.4) * 0.08;
+        glowRing(state.targetR * breathe, "#c14bff", 1.5, state.mode === "playing" ? 0.08 : 0.22);
+      }
+
+      function drawParticles(dt) {
+        for (let i = state.particles.length - 1; i >= 0; i--) {
+          const p = state.particles[i];
+          p.x += p.vx * dt * 60;
+          p.y += p.vy * dt * 60;
+          p.vx *= 0.98;
+          p.vy *= 0.98;
+          p.life -= p.decay * dt * 60;
+          if (p.life <= 0) {
+            state.particles.splice(i, 1);
+            continue;
+          }
+          ctx.globalAlpha = Math.max(0, p.life);
+          ctx.fillStyle = p.color;
+          ctx.shadowColor = p.color;
+          ctx.shadowBlur = 10;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.globalAlpha = 1;
+        ctx.shadowBlur = 0;
+      }
+
+      function frame(now) {
+        const dt = Math.min(0.033, (now - (state.last || now)) / 1000);
+        state.last = now;
+
+        if (state.inputLock > 0) state.inputLock = Math.max(0, state.inputLock - dt);
+        if (state.mode === "playing") {
+          if (state.waiting > 0) {
+            state.waiting -= dt;
+            if (state.waiting <= 0) {
+              state.pulseR = 10;
+              state.trails = [];
+            }
+          } else {
+            state.pulseR += (state.targetR / state.duration) * dt;
+            if (state.pulseR > state.targetR * 1.14) miss();
+          }
+        }
+
+        if (state.shake > 0) state.shake = Math.max(0, state.shake - dt * 3.6);
+        if (state.flash > 0) state.flash = Math.max(0, state.flash - dt * 2.8);
+
+        ctx.clearRect(0, 0, state.w, state.h);
+        const bg = ctx.createRadialGradient(state.cx, state.cy, 20, state.cx, state.cy, Math.max(state.w, state.h) * 0.7);
+        bg.addColorStop(0, "#14182b");
+        bg.addColorStop(0.45, "#0b1020");
+        bg.addColorStop(1, "#07090f");
+        ctx.fillStyle = bg;
+        ctx.fillRect(0, 0, state.w, state.h);
+
+        ctx.save();
+        if (state.shake > 0) {
+          const mag = state.shake * 9;
+          ctx.translate((Math.random() - 0.5) * mag, (Math.random() - 0.5) * mag);
+        }
+
+        drawGrid();
+        drawAmbient();
+        drawTarget();
+        drawPulse();
+        drawParticles(dt);
+        ctx.restore();
+
+        if (state.flash > 0) {
+          ctx.fillStyle = `rgba(${state.flashColor}, ${state.flash * 0.16})`;
+          ctx.fillRect(0, 0, state.w, state.h);
+        }
+
+        requestAnimationFrame(frame);
+      }
+
+      window.addEventListener("resize", resize);
+      if (window.visualViewport) window.visualViewport.addEventListener("resize", resize);
+      window.addEventListener("keydown", onInput);
+      app.addEventListener("pointerdown", onInput);
+      app.addEventListener("click", onInput);
+      window.__pixelPulse = state;
+      document.addEventListener("visibilitychange", () => {
+        if (document.hidden) state.last = performance.now();
+      });
+
+      window.addEventListener("beforeinstallprompt", (event) => {
+        event.preventDefault();
+        installEvent = event;
+        installBtn.style.display = "block";
+      });
+      installBtn.addEventListener("click", async (event) => {
+        event.stopPropagation();
+        if (!installEvent) return;
+        installEvent.prompt();
+        await installEvent.userChoice;
+        installEvent = null;
+        installBtn.style.display = "none";
+      });
+
+      if ("serviceWorker" in navigator) {
+        window.addEventListener("load", () => {
+          navigator.serviceWorker.register("./sw.js").catch(() => {});
+        });
+      }
+
+      resize();
+      syncHud();
+      requestAnimationFrame(frame);
+    })();
+  </script>
+</body>
+</html>
